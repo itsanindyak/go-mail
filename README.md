@@ -158,15 +158,3 @@ Start observability:
 docker compose -f observability.yaml up -d --build
 ```
 
----
-
-## ❤️ Want more?
-I can generate:
-- dry‑run mode for safe load tests
-- CSV generator script
-- full OTEL + Tempo + Loki logging stack
-- alert rules and service SLOs
-- tuning guide for throughput vs reliability
-
-Just ask!
-
