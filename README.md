@@ -1,4 +1,3 @@
-docker compose -f observability.yaml up -d --build
 
 # Email Campaign — Planning, Concurrency Theory, and Observability
 
