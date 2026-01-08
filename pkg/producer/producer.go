@@ -33,6 +33,7 @@ func LoadFile(path string, ch chan types.Recipient) error {
 		ch <- types.Recipient{
 			Name: record[0],
 			Email: record[1],
+			Attempts: 0,
 		}
 	}
 
