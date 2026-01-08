@@ -24,19 +24,30 @@ func LoadFile(path string, ch chan types.Recipient) error {
 
 	reader := csv.NewReader(file)
 
-	reader.Read() // skip header
+	_, err = reader.Read() // skip header
+	if err == io.EOF {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
 
 	for{
 		record, err := reader.Read()
 
 		if err == io.EOF {
-        	break
-    	}
+			break
+		}
 
 		if err != nil {
 			break
 		}
 
+		// Ensure the record has at least name and email columns before accessing.
+		if len(record) < 2 {
+			// Skip malformed or incomplete rows.
+			continue
+		}
 		ch <- types.Recipient{
 			Name: record[0],
 			Email: record[1],
