@@ -1,6 +1,7 @@
 package types
 
 type Recipient struct {
-	Name  string
-	Email string
+	Name     string
+	Email    string
+	Attempts int
 }
