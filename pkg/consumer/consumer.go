@@ -2,7 +2,6 @@ package consumer
 
 import (
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
@@ -11,49 +10,39 @@ import (
 	"github.com/itsanindyak/email-campaign/types"
 )
 
-func EmailWorker(id int, ch chan types.Recipient,dlq chan types.Recipient,wg *sync.WaitGroup) {
-	
+// EmailWorker processes emails for a single worker.
+func EmailWorker(id int, ch chan types.Recipient, dlq chan types.Recipient, wg *sync.WaitGroup) {
+
 	defer wg.Done()
 
 	for recipient := range ch {
 
 		metrics.WorkerActive.Inc()
-		
-		success := false
 
-		for attempt := 1; attempt <= 3;attempt++ {
+		fmt.Printf("[Worker %d] Sending email to: %s\n", id, recipient.Email)
 
-			fmt.Printf("[Worker %d] Sending email to: %s\n", id, recipient.Email)
+		start := time.Now()
+		//send mail
+		err := mail.Send(recipient)
 
-			start := time.Now()
-			err := mail.MailSend(recipient)
-			duration := time.Since(start).Seconds()
+		duration := time.Since(start).Seconds()
+		metrics.EmailDuration.Observe(duration)
 
-			metrics.EmailDuration.Observe(duration)
-
-			if err == nil {
-
-				success = true
-				time.Sleep(50 * time.Millisecond)
-				fmt.Printf("[Worker %d] Send email to: %s\n", id, recipient.Email)
-				metrics.EmailsSent.Inc()
-
-				break
+		if err != nil {
+			fmt.Printf("[Worker %d] Failed to send email to: %s, error: %v\n", id, recipient.Email, err)
+			if recipient.Attempts < 3 {
+				recipient.Attempts++
+				ch <- recipient
+			} else {
+				metrics.EmailsFailed.Inc()
+				dlq <- recipient
 			}
-			
-			log.Printf("[Worker %d] Error sending to %s (attempt %d): %v",
-                id, recipient.Email, attempt, err)
-
-            time.Sleep(1 * time.Second)
-			
-		}
-
-		if !success {
-			metrics.EmailsFailed.Inc()
-			dlq <- recipient // push to DLQ
+		} else {
+			metrics.EmailsSent.Inc()
+			fmt.Printf("[Worker %d] Send email to: %s\n", id, recipient.Email)
 		}
 
 		metrics.WorkerActive.Dec()
-		
+
 	}
 }
