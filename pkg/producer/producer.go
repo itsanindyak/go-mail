@@ -2,6 +2,7 @@ package producer
 
 import (
 	"encoding/csv"
+	"io"
 	"log"
 	"os"
 
@@ -23,20 +24,26 @@ func LoadFile(path string, ch chan types.Recipient) error {
 
 	reader := csv.NewReader(file)
 
-	records, err := reader.ReadAll()
-	if err != nil {
-		log.Fatalf("Error reading CSV: %v", err)
-	}
+	reader.Read() // skip header
 
-	for _, record := range records[1:] {
-		// fmt.Println(record)
+	for{
+		record, err := reader.Read()
+
+		if err == io.EOF {
+        	break
+    	}
+
+		if err != nil {
+			break
+		}
+
 		ch <- types.Recipient{
 			Name: record[0],
 			Email: record[1],
 			Attempts: 0,
 		}
 	}
-
+	
 	return nil
 
 }
