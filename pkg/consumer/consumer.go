@@ -10,8 +10,14 @@ import (
 	"github.com/itsanindyak/email-campaign/types"
 )
 
-// EmailWorker processes emails for a single worker.
-func EmailWorker(id int, ch chan types.Recipient, dlq chan types.Recipient, wg *sync.WaitGroup) {
+// EmailWorker processes emails from the recipient channel using the specified worker ID.
+// For each recipient, it attempts to send an email and handles success/failure appropriately:
+//   - On success: increments the sent counter metric
+//   - On failure with attempts < 3: re-queues to retry channel with incremented attempt count
+//   - On failure with attempts >= 3: moves recipient to dead-letter queue
+//
+// The worker signals completion via the provided WaitGroup when the channel is closed.
+func EmailWorker(id int, ch chan types.Recipient, dlq chan types.Recipient, retryCh chan types.Recipient, wg *sync.WaitGroup) {
 
 	defer wg.Done()
 
@@ -23,7 +29,7 @@ func EmailWorker(id int, ch chan types.Recipient, dlq chan types.Recipient, wg *
 
 		start := time.Now()
 		//send mail
-		err := mail.Send(recipient)
+		 err := mail.Send(recipient)
 
 		duration := time.Since(start).Seconds()
 		metrics.EmailDuration.Observe(duration)
@@ -32,7 +38,7 @@ func EmailWorker(id int, ch chan types.Recipient, dlq chan types.Recipient, wg *
 			fmt.Printf("[Worker %d] Failed to send email to: %s, error: %v\n", id, recipient.Email, err)
 			if recipient.Attempts < 3 {
 				recipient.Attempts++
-				ch <- recipient
+				retryCh <- recipient
 			} else {
 				metrics.EmailsFailed.Inc()
 				dlq <- recipient
