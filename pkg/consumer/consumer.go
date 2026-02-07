@@ -1,6 +1,7 @@
 package consumer
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -8,6 +9,7 @@ import (
 	"github.com/itsanindyak/email-campaign/mail"
 	"github.com/itsanindyak/email-campaign/pkg/metrics"
 	"github.com/itsanindyak/email-campaign/types"
+	"golang.org/x/time/rate"
 )
 
 // EmailWorker processes emails from the recipient channel using the specified worker ID.
@@ -17,38 +19,70 @@ import (
 //   - On failure with attempts >= 3: moves recipient to dead-letter queue
 //
 // The worker signals completion via the provided WaitGroup when the channel is closed.
-func EmailWorker(id int, ch chan types.Recipient, dlq chan types.Recipient, retryCh chan types.Recipient, wg *sync.WaitGroup) {
+func EmailWorker(ctx context.Context, id int, ch chan types.Recipient, dlq chan types.Recipient, wg *sync.WaitGroup, limiter *rate.Limiter) {
 
-	defer wg.Done()
+	for {
 
-	for recipient := range ch {
+		select {
 
-		metrics.WorkerActive.Inc()
+		case <-ctx.Done():
+			return
 
-		fmt.Printf("[Worker %d] Sending email to: %s\n", id, recipient.Email)
+		case recipient := <-ch:
 
-		start := time.Now()
-		//send mail
-		 err := mail.Send(recipient)
-
-		duration := time.Since(start).Seconds()
-		metrics.EmailDuration.Observe(duration)
-
-		if err != nil {
-			fmt.Printf("[Worker %d] Failed to send email to: %s, error: %v\n", id, recipient.Email, err)
-			if recipient.Attempts < 3 {
-				recipient.Attempts++
-				retryCh <- recipient
-			} else {
-				metrics.EmailsFailed.Inc()
-				dlq <- recipient
+			err := limiter.Wait(ctx)
+			if err != nil {
+				return
 			}
-		} else {
-			metrics.EmailsSent.Inc()
-			fmt.Printf("[Worker %d] Send email to: %s\n", id, recipient.Email)
+
+			metrics.WorkerActive.Inc()
+
+			fmt.Printf("[Worker %d] Sending email to: %s\n", id, recipient.Email)
+
+			start := time.Now()
+			//send mail
+			//  err := mail.Send(recipient)
+
+			err = mail.MailSend(recipient)
+
+			duration := time.Since(start).Seconds()
+			metrics.EmailDuration.Observe(duration)
+
+			if err != nil {
+				fmt.Printf("[Worker %d] Failed to send email to: %s, error: %v\n", id, recipient.Email, err)
+				if recipient.Attempts < 3 {
+					recipient.Attempts++
+
+					go func(r types.Recipient) {
+						time.Sleep(time.Duration(r.Attempts) * time.Second)
+						select {
+						case ch <- r:
+
+							// Success: Retry queued
+							fmt.Printf("Retry queued for %s\n", r.Email)
+						case <-ctx.Done():
+							wg.Done()
+						}
+					}(recipient)
+
+				} else {
+					metrics.EmailsFailed.Inc()
+
+					select {
+					case dlq <- recipient:
+					case <-ctx.Done():
+					}
+
+					wg.Done()
+				}
+			} else {
+				metrics.EmailsSent.Inc()
+				fmt.Printf("[Worker %d] Send email to: %s\n", id, recipient.Email)
+
+				wg.Done()
+			}
+
+			metrics.WorkerActive.Dec()
 		}
-
-		metrics.WorkerActive.Dec()
-
 	}
 }
