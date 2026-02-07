@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/itsanindyak/email-campaign/mail"
-	"github.com/itsanindyak/email-campaign/pkg/metrics"
 	"github.com/itsanindyak/email-campaign/types"
 	"golang.org/x/time/rate"
 )
@@ -35,19 +34,14 @@ func EmailWorker(ctx context.Context, id int, ch chan types.Recipient, dlq chan 
 				return
 			}
 
-			metrics.WorkerActive.Inc()
-
 			fmt.Printf("[Worker %d] Sending email to: %s\n", id, recipient.Email)
 
-			start := time.Now()
 			//send mail
 			//  err := mail.Send(recipient)
 
 			err = mail.MailSend(recipient)
 
-			duration := time.Since(start).Seconds()
-			metrics.EmailDuration.Observe(duration)
-
+			
 			if err != nil {
 				fmt.Printf("[Worker %d] Failed to send email to: %s, error: %v\n", id, recipient.Email, err)
 				if recipient.Attempts < 3 {
@@ -66,7 +60,6 @@ func EmailWorker(ctx context.Context, id int, ch chan types.Recipient, dlq chan 
 					}(recipient)
 
 				} else {
-					metrics.EmailsFailed.Inc()
 
 					select {
 					case dlq <- recipient:
@@ -76,13 +69,11 @@ func EmailWorker(ctx context.Context, id int, ch chan types.Recipient, dlq chan 
 					wg.Done()
 				}
 			} else {
-				metrics.EmailsSent.Inc()
 				fmt.Printf("[Worker %d] Send email to: %s\n", id, recipient.Email)
 
 				wg.Done()
 			}
 
-			metrics.WorkerActive.Dec()
 		}
 	}
 }

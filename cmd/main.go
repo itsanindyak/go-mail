@@ -35,10 +35,6 @@ func main() {
 	path := "email.csv"
 	workerCount := 3
 
-	//metrics.Init()
-
-	//go metrics.StartMetrics(":2112")
-
 	ctx, cancel := context.WithCancel(context.Background())
 
 	defer cancel()
@@ -60,7 +56,7 @@ func main() {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			consumer.EmailWorker(ctx, i, recipientChannel, dlqChannel, &itemWg,limiter)
+			consumer.EmailWorker(ctx, i, recipientChannel, dlqChannel, &itemWg, limiter)
 		}(i)
 	}
 
