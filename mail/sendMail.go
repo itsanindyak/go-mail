@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/smtp"
 	"os"
+	"time"
 
 	"github.com/itsanindyak/email-campaign/types"
 )
@@ -26,6 +27,7 @@ func MailSend(recipient types.Recipient) error {
 	formattedMsg := fmt.Sprintf("To: %s\r\nSubject: Test Email\r\n\r\n%s\r\n", recipient.Email, "Just testing our email campaign\r\nname: "+recipient.Name)
 
 	msg := []byte(formattedMsg)
+	time.Sleep(100 * time.Millisecond)
 
 	err := smtp.SendMail(smtpURL, nil, senderEmail, []string{recipient.Email}, msg)
 
