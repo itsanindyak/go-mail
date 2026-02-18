@@ -11,6 +11,7 @@ import (
 	"github.com/itsanindyak/email-campaign/pkg/consumer"
 	"github.com/itsanindyak/email-campaign/pkg/dlqueue"
 	"github.com/itsanindyak/email-campaign/pkg/producer"
+	"github.com/itsanindyak/email-campaign/pkg/telemetry"
 	"github.com/itsanindyak/email-campaign/types"
 	"github.com/joho/godotenv"
 	"golang.org/x/time/rate"
@@ -23,6 +24,12 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	oTELctx := context.Background()
+	shutdown := telemetry.InitOTel(oTELctx)
+	defer shutdown(oTELctx)
+	log.Println("Observability initialized. Starting engine...")
+
 	emailsPerSecondStr := os.Getenv("EMAILS_PER_SEC")
 
 	emailsPerSecond, err := strconv.ParseFloat(emailsPerSecondStr, 64)
