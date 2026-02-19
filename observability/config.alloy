@@ -1,4 +1,4 @@
-// 1. INPUT: Receive OTLP from Go
+// 1. INPUT: Receive OTLP from Go 
 otelcol.receiver.otlp "default" {
   grpc { endpoint = "0.0.0.0:4317" }
   http { endpoint = "0.0.0.0:4318" }
@@ -13,9 +13,9 @@ otelcol.receiver.otlp "default" {
 // 2. PROCESSOR: Batch data
 otelcol.processor.batch "default" {
   output {
-    traces  = [otelcol.exporter.otlp.grafana_cloud.input]
-    metrics = [otelcol.exporter.otlp.grafana_cloud.input]
-    logs    = [otelcol.exporter.otlp.grafana_cloud.input]
+    traces  = [otelcol.exporter.otlphttp.grafana_cloud.input]
+    metrics = [otelcol.exporter.otlphttp.grafana_cloud.input]
+    logs    = [otelcol.exporter.otlphttp.grafana_cloud.input]
   }
 }
 
@@ -25,10 +25,11 @@ otelcol.auth.basic "grafana_cloud" {
   password = sys.env("GRAFANA_API_TOKEN")
 }
 
-// 4. OUTPUT: Send to Grafana Cloud
-otelcol.exporter.otlp "grafana_cloud" {
+// 4. OUTPUT: Send to Grafana Cloud via HTTP
+otelcol.exporter.otlphttp "grafana_cloud" {
   client {
-    endpoint = sys.env("GRAFANA_OTLP_ENDPOINT") 
-    auth     = otelcol.auth.basic.grafana_cloud.handler
+    endpoint = "https://otlp-gateway-prod-ap-south-1.grafana.net/otlp" 
+    
+    auth = otelcol.auth.basic.grafana_cloud.handler
   }
 }
