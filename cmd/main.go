@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -25,10 +26,20 @@ func main() {
 		log.Fatal(err)
 	}
 
-	oTELctx := context.Background()
-	shutdown := telemetry.InitOTel(oTELctx)
-	defer shutdown(oTELctx)
-	log.Println("Observability initialized. Starting engine...")
+	
+	shutdown := telemetry.InitOTel(context.Background())
+
+	fmt.Println("Observability initialized. Starting engine...")
+
+	defer func() {
+		fmt.Println("Observability stopped. Shutdown engine and cleaning started....")
+		shutDownCtx, cancelShutDown := context.WithTimeout(context.Background(),5 * time.Second)
+		defer cancelShutDown()
+	 	shutdown(shutDownCtx)
+		fmt.Println("cleaning Done. BYE....")
+	}()
+
+
 
 	emailsPerSecondStr := os.Getenv("EMAILS_PER_SEC")
 
@@ -72,7 +83,7 @@ func main() {
 	go func() {
 		defer producerWg.Done()
 
-		err = producer.LoadFile(path, recipientChannel, &itemWg)
+		err = producer.LoadFile(ctx,path, recipientChannel, &itemWg)
 		if err != nil {
 			log.Printf("Producer error: %v", err)
 		}
