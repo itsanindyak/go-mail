@@ -2,7 +2,6 @@ package telemetry
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"log/slog"
 	"os"
@@ -82,7 +81,7 @@ func InitOTel(ctx context.Context) func(context.Context) error {
 		traceP.Shutdown(ctx)
 		metricP.Shutdown(ctx)
 		logP.Shutdown(ctx)
-		fmt.Println("Observability stopped. Shutdown engine...")
+
 		return nil
 	}
 
