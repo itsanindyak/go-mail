@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
 	"strconv"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/itsanindyak/email-campaign/pkg/consumer"
@@ -72,14 +70,6 @@ func main() {
 	dlqWg.Add(1)
 	go dlqueue.DlqWorker(ctx, dlqChannel, &dlqWg)
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		sig := <-sigChan
-		log.Printf("Received signal: %v. Initiating graceful shutdown...", sig)
-		cancel()
-	}()
 
 	for i := range workerCount {
 		wg.Add(1)
