@@ -64,7 +64,7 @@ func EmailWorker(ctx context.Context, id int, ch chan types.EmailJob, dlq chan t
 			//send mail
 			// err = mail.Send(recipient)
 
-			err = mail.MailSend(jobCtx, recipient.Recipient.Email, recipient.Template)
+			err = mail.Send(jobCtx, recipient.Recipient.Email, recipient.Template)
 
 			if err != nil {
 				fmt.Printf("[Worker %d] Failed to send email to: %s, error: %v\n", id, recipient.Recipient.Email, err)

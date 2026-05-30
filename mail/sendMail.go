@@ -22,11 +22,17 @@ var (
 	)
 )
 
+type SMTPService struct{}
+
+func NewSMTPService() *SMTPService {
+	return &SMTPService{}
+}
+
 // MailSend sends an email to the specified recipient using SMTP.
 // It uses the SMTP_URL environment variable for the mail server (defaults to localhost:1025)
 // and SENDER_EMAIL for the sender address (defaults to iankoley04@gmail.com).
 // Returns an error if the email fails to send.
-func MailSend(ctx context.Context, recipient string, template templates.Template) error {
+func (s SMTPService) sendMail(ctx context.Context, recipient string, template templates.Template) error {
 
 	tracer := otel.Tracer("email-engine")
 
