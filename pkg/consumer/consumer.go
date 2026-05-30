@@ -30,7 +30,7 @@ var (
 //   - On failure with attempts >= 3: moves recipient to dead-letter queue
 //
 // The worker signals completion via the provided WaitGroup when the channel is closed.
-func EmailWorker(ctx context.Context, id int, ch chan types.Recipient, dlq chan types.Recipient, wg *sync.WaitGroup, limiter *rate.Limiter) {
+func EmailWorker(ctx context.Context, id int, ch chan types.EmailJob, dlq chan types.EmailJob, wg *sync.WaitGroup, limiter *rate.Limiter) {
 
 	tracer := otel.Tracer("email-engine")
 
@@ -41,7 +41,10 @@ func EmailWorker(ctx context.Context, id int, ch chan types.Recipient, dlq chan 
 		case <-ctx.Done():
 			return
 
-		case recipient := <-ch:
+		case recipient,ok := <-ch:
+			if !ok {
+				return
+			}
 
 			err := limiter.Wait(ctx)
 			if err != nil {
@@ -52,8 +55,8 @@ func EmailWorker(ctx context.Context, id int, ch chan types.Recipient, dlq chan 
 
 			span.SetAttributes(
 				attribute.Int("worker.id", id),
-				attribute.Int("attempt.number", recipient.Attempts),
-				attribute.String("recipient.email", recipient.Email),
+				attribute.Int("attempt.number", recipient.Recipient.Attempts),
+				attribute.String("recipient.email", recipient.Recipient.Email),
 			)
 
 			// fmt.Printf("[Worker %d] Sending email to: %s\n", id, recipient.Email)
@@ -61,27 +64,27 @@ func EmailWorker(ctx context.Context, id int, ch chan types.Recipient, dlq chan 
 			//send mail
 			// err = mail.Send(recipient)
 
-			err = mail.MailSend(jobCtx, recipient)
+			err = mail.MailSend(jobCtx, recipient.Recipient.Email, recipient.Template)
 
 			if err != nil {
-				fmt.Printf("[Worker %d] Failed to send email to: %s, error: %v\n", id, recipient.Email, err)
+				fmt.Printf("[Worker %d] Failed to send email to: %s, error: %v\n", id, recipient.Recipient.Email, err)
 
 				failCounter.Add(jobCtx, 1)
 
 				span.RecordError(err)
 				span.SetStatus(codes.Error, "Failed to send email")
 
-				slog.ErrorContext(jobCtx, "Failed to send mail", "recipient", recipient.Email, "error", err)
+				slog.ErrorContext(jobCtx, "Failed to send mail", "recipient", recipient.Recipient.Email, "error", err)
 
-				if recipient.Attempts < 3 {
-					recipient.Attempts++
+				if recipient.Recipient.Attempts < 3 {
+					recipient.Recipient.Attempts++
 					retryCounter.Add(jobCtx,1)
 
-					go func(r types.Recipient) {
-						time.Sleep(time.Duration(r.Attempts) * time.Second)
+					go func(r types.EmailJob) {
+						time.Sleep(time.Duration(r.Recipient.Attempts) * time.Second)
 						select {
 						case ch <- r:
-							slog.Info("Retry queued", "email", r.Email)
+							slog.Info("Retry queued", "email", r.Recipient.Email)
 						case <-ctx.Done():
 							wg.Done()
 						}
@@ -101,7 +104,7 @@ func EmailWorker(ctx context.Context, id int, ch chan types.Recipient, dlq chan 
 			} else {
 				sentCounter.Add(jobCtx,1)
 				slog.InfoContext(jobCtx, "Email successfully sent", "worker_id", id)
-				fmt.Printf("[Worker %d] Send email to: %s\n", id, recipient.Email)
+				fmt.Printf("[Worker %d] Send email to: %s\n", id, recipient.Recipient.Email)
 
 				wg.Done()
 			}

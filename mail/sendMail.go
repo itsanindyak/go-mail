@@ -2,12 +2,10 @@ package mail
 
 import (
 	"context"
-	"fmt"
 	"net/smtp"
 	"os"
 	"time"
 
-	"github.com/itsanindyak/email-campaign/types"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -27,7 +25,7 @@ var (
 // It uses the SMTP_URL environment variable for the mail server (defaults to localhost:1025)
 // and SENDER_EMAIL for the sender address (defaults to iankoley04@gmail.com).
 // Returns an error if the email fails to send.
-func MailSend(ctx context.Context, recipient types.Recipient) error {
+func MailSend(ctx context.Context, recipient string, template Template) error {
 
 	tracer := otel.Tracer("email-engine")
 
@@ -36,7 +34,7 @@ func MailSend(ctx context.Context, recipient types.Recipient) error {
 	defer span.End()
 
 	// Tag the trace with searchable data
-	span.SetAttributes(attribute.String("recipient.email",recipient.Email))
+	span.SetAttributes(attribute.String("recipient.email",recipient))
 
 	smtpURL := os.Getenv("SMTP_URL")
 	if smtpURL == "" {
@@ -50,12 +48,23 @@ func MailSend(ctx context.Context, recipient types.Recipient) error {
 
 	startTime := time.Now()
 
-	formattedMsg := fmt.Sprintf("To: %s\r\nSubject: Test Email\r\n\r\n%s\r\n", recipient.Email, "Just testing our email campaign\r\nname: "+recipient.Name)
+	// formattedMsg := fmt.Sprintf("To: %s\r\nSubject: Test Email\r\n\r\n%s\r\n", recipient.Email, "Just testing our email campaign\r\nname: "+recipient.Name)
+
+
+	html,Subject,err := Render(template)
+
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error,"Template rendering failed")
+		return err
+	}
+
+	formattedMsg := FormatMIME(recipient, Subject, html)
 
 	msg := []byte(formattedMsg)
 	time.Sleep(100 * time.Millisecond)
 
-	err := smtp.SendMail(smtpURL, nil, senderEmail, []string{recipient.Email}, msg)
+	err = smtp.SendMail(smtpURL, nil, senderEmail, []string{recipient}, msg)
 
 	sendDuration.Record(ctx,time.Since(startTime).Seconds())
 

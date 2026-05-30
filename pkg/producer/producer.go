@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/itsanindyak/email-campaign/mail/templates/greetings"
 	"github.com/itsanindyak/email-campaign/types"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -28,7 +29,7 @@ var (
 // columns: Name and Email. The first row is treated as a header and skipped.
 //
 // Note: The caller is responsible for closing the channel after LoadFile returns.
-func LoadFile(ctx context.Context, path string, ch chan types.Recipient, wg *sync.WaitGroup) error {
+func LoadFile(ctx context.Context, path string, ch chan types.EmailJob, wg *sync.WaitGroup) error {
 
 	tracer := otel.Tracer("email-engine")
 
@@ -87,10 +88,13 @@ func LoadFile(ctx context.Context, path string, ch chan types.Recipient, wg *syn
 
 		wg.Add(1)
 
-		ch <- types.Recipient{
-			Name:     record[0],
-			Email:    record[1],
-			Attempts: 0,
+		ch <- types.EmailJob{
+			Recipient: types.Recipient{
+				Name:     record[0],
+				Email:    record[1],
+				Attempts: 0,
+			},
+			Template: greetings.WelcomeData{Name: record[0],Link: "google.com/"},
 		}
 
 		rowsReadTotal.Add(ctx, 1)

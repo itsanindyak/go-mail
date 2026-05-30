@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"strconv"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/itsanindyak/email-campaign/pkg/consumer"
@@ -62,19 +64,28 @@ func main() {
 	var itemWg sync.WaitGroup
 	var producerWg sync.WaitGroup
 
-	recipientChannel := make(chan types.Recipient, 100)
-	dlqChannel := make(chan types.Recipient, 100)
+	jobChannel := make(chan types.EmailJob, 100)
+	dlqChannel := make(chan types.EmailJob, 100)
 
 	// log.Flags()
 
 	dlqWg.Add(1)
 	go dlqueue.DlqWorker(ctx, dlqChannel, &dlqWg)
 
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		sig := <-sigChan
+		log.Printf("Received signal: %v. Initiating graceful shutdown...", sig)
+		cancel()
+	}()
+
 	for i := range workerCount {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			consumer.EmailWorker(ctx, i, recipientChannel, dlqChannel, &itemWg, limiter)
+			consumer.EmailWorker(ctx, i, jobChannel, dlqChannel, &itemWg, limiter)
 		}(i)
 	}
 
@@ -83,14 +94,13 @@ func main() {
 	go func() {
 		defer producerWg.Done()
 
-		err = producer.LoadFile(ctx,path, recipientChannel, &itemWg)
+		err = producer.LoadFile(ctx,path, jobChannel, &itemWg)
 		if err != nil {
 			log.Printf("Producer error: %v", err)
 		}
 	}()
 
 	producerWg.Wait()
-
 	log.Println("Producer finished sending all items.")
 
 	itemWg.Wait()
@@ -99,9 +109,7 @@ func main() {
 	cancel()
 
 	wg.Wait()
-	close(recipientChannel)
-
-	close(dlqChannel)
+	close(jobChannel)
 	dlqWg.Wait()
 
 	elapsed := time.Since(startTime)

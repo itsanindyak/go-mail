@@ -33,3 +33,5 @@ go.work.sum
 
 dlq.log
 dev.csv
+
+observability/data-alloy
