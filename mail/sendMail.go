@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/itsanindyak/email-campaign/pkg/templates"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -25,7 +26,7 @@ var (
 // It uses the SMTP_URL environment variable for the mail server (defaults to localhost:1025)
 // and SENDER_EMAIL for the sender address (defaults to iankoley04@gmail.com).
 // Returns an error if the email fails to send.
-func MailSend(ctx context.Context, recipient string, template Template) error {
+func MailSend(ctx context.Context, recipient string, template templates.Template) error {
 
 	tracer := otel.Tracer("email-engine")
 
@@ -51,7 +52,7 @@ func MailSend(ctx context.Context, recipient string, template Template) error {
 	// formattedMsg := fmt.Sprintf("To: %s\r\nSubject: Test Email\r\n\r\n%s\r\n", recipient.Email, "Just testing our email campaign\r\nname: "+recipient.Name)
 
 
-	html,Subject,err := Render(template)
+	html,Subject,err := templates.Render(template)
 
 	if err != nil {
 		span.RecordError(err)
@@ -59,7 +60,7 @@ func MailSend(ctx context.Context, recipient string, template Template) error {
 		return err
 	}
 
-	formattedMsg := FormatMIME(recipient, Subject, html)
+	formattedMsg := templates.FormatMIME(recipient, Subject, html)
 
 	msg := []byte(formattedMsg)
 	time.Sleep(100 * time.Millisecond)

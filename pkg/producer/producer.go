@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/itsanindyak/email-campaign/mail/templates/greetings"
+	"github.com/itsanindyak/email-campaign/pkg/templates/greetings"
 	"github.com/itsanindyak/email-campaign/types"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -94,7 +94,7 @@ func LoadFile(ctx context.Context, path string, ch chan types.EmailJob, wg *sync
 				Email:    record[1],
 				Attempts: 0,
 			},
-			Template: greetings.WelcomeData{Name: record[0],Link: "google.com/"},
+			Template: greetings.Data{Name: record[0],Link: "google.com/"},
 		}
 
 		rowsReadTotal.Add(ctx, 1)

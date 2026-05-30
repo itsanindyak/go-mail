@@ -1,4 +1,4 @@
-package greetings
+package otp
 
 import (
 	"sync"
@@ -15,13 +15,13 @@ var (
 	otpTmpl *template.Template
 )
 
-type OTPData struct {
+type Data struct {
 	Name   string
 	OTP    string
 	Expire int
 }
 
-func (OTPData) GetTemplate() *template.Template {
+func (Data) GetTemplate() *template.Template {
 	otpOnce.Do(func() {
 		tmpl := template.New("otp")
 		otpTmpl, _ = tmpl.Parse(otpHTML)

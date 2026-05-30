@@ -1,6 +1,8 @@
 package types
 
-import "github.com/itsanindyak/email-campaign/mail"
+import (
+	"github.com/itsanindyak/email-campaign/pkg/templates"
+)
 
 // Recipient represents an email recipient loaded from the CSV file.
 // It contains the recipient's name, email address, and a counter for retry attempts.
@@ -12,5 +14,5 @@ type Recipient struct {
 
 type EmailJob struct {
     Recipient Recipient
-    Template  mail.Template
+    Template  templates.Template
 }
