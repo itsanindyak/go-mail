@@ -21,6 +21,10 @@ type Data struct {
 	Expire int
 }
 
+func (w Data) GetSubject() string {
+	return "OTP for verification"
+}
+
 func (Data) GetTemplate() *template.Template {
 	otpOnce.Do(func() {
 		tmpl := template.New("otp")
